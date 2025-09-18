@@ -41,16 +41,17 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',  # 이 줄 중요!
+    # 커스텀 YAML 파일을 사용하므로 기본 스키마 클래스는 사용하지 않음
 }
 
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'Auth API',
-    'DESCRIPTION': 'Authentication API with JWT',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-}
+# SPECTACULAR_SETTINGS는 커스텀 스키마를 사용하므로 비활성화
+# SPECTACULAR_SETTINGS = {
+#     'TITLE': 'Auth API',
+#     'DESCRIPTION': 'Authentication API with JWT',
+#     'VERSION': '1.0.0',
+#     'SERVE_INCLUDE_SCHEMA': False,
+#     'COMPONENT_SPLIT_REQUEST': True,
+# }
 
 # JWT Settings
 from datetime import timedelta
@@ -124,16 +125,10 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'OPTIONS': {
+            'min_length': 4,
+        }
     },
 ]
 

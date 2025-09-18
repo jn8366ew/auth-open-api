@@ -1,0 +1,320 @@
+openapi: 3.0.3
+info:
+  title: Auth API
+  description: Authentication API with JWT
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  /api/auth/register/:
+    post:
+      operationId: register_user
+      summary: 사용자 회원가입
+      description: 새로운 사용자를 등록합니다. 이메일과 패스워드가 필요합니다.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+            examples:
+              회원가입예시:
+                summary: 일반적인 회원가입 요청
+                description: 사용자가 회원가입할 때 필요한 모든 정보를 포함한 예시입니다.
+                value:
+                  username: user123
+                  email: user@example.com
+                  first_name: 홍
+                  last_name: 길동
+                  password: "1234"
+                  password_confirm: "1234"
+      responses:
+        '201':
+          description: 회원가입 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 잘못된 요청 데이터
+          content:
+            application/json:
+              examples:
+                password_mismatch:
+                  summary: 비밀번호 불일치
+                  value:
+                    password_confirm: ["Passwords don't match"]
+                validation_error:
+                  summary: 유효성 검사 오류
+                  value:
+                    username: ["This field is required."]
+
+  /api/auth/login/:
+    post:
+      operationId: login_user
+      summary: 사용자 로그인
+      description: 사용자 인증 정보를 받아 JWT 액세스 토큰과 리프레시 토큰을 반환합니다.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+            examples:
+              로그인예시:
+                summary: 이메일과 패스워드로 로그인
+                value:
+                  email: user@example.com
+                  password: "1234"
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              example:
+                detail: No active account found with the given credentials
+
+  /api/auth/token/refresh/:
+    post:
+      operationId: refresh_token
+      summary: 토큰 갱신
+      description: 리프레시 토큰을 사용하여 새로운 액세스 토큰을 발급받습니다.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+            examples:
+              토큰갱신예시:
+                summary: 리프레시 토큰으로 액세스 토큰 갱신
+                value:
+                  refresh: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+      responses:
+        '200':
+          description: 토큰 갱신 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access:
+                    type: string
+                    description: 새로운 액세스 토큰
+        '401':
+          description: 유효하지 않은 리프레시 토큰
+          content:
+            application/json:
+              example:
+                detail: Token is invalid or expired
+
+  /api/auth/profile/:
+    get:
+      operationId: get_user_profile
+      summary: 사용자 프로필 조회
+      description: 인증된 사용자의 프로필 정보를 조회합니다.
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 프로필 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              examples:
+                프로필예시:
+                  summary: 사용자 프로필 정보
+                  value:
+                    id: 1
+                    username: user123
+                    email: user@example.com
+                    first_name: 홍
+                    last_name: 길동
+                    is_verified: false
+                    created_at: "2025-09-18T10:30:00Z"
+        '401':
+          description: 인증되지 않은 사용자
+          content:
+            application/json:
+              example:
+                detail: Authentication credentials were not provided.
+
+  /api/auth/health/:
+    get:
+      operationId: health_check
+      summary: 서버 상태 확인
+      description: API 서버의 상태를 확인하는 헬스 체크 엔드포인트입니다.
+      tags:
+        - Health Check
+      responses:
+        '200':
+          description: 서버가 정상적으로 작동 중입니다.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+              examples:
+                정상상태:
+                  summary: 서버 정상 응답
+                  value:
+                    status: healthy
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT 토큰을 사용한 인증. 헤더에 'Bearer {token}' 형식으로 전송합니다.
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 사용자 고유 ID
+          example: 1
+        username:
+          type: string
+          description: 사용자명 (150자 이하, 문자, 숫자, @/./+/-/_ 만 허용)
+          maxLength: 150
+          example: user123
+        email:
+          type: string
+          format: email
+          description: 사용자 이메일 (고유값)
+          example: user@example.com
+        first_name:
+          type: string
+          description: 이름
+          maxLength: 30
+          example: 홍
+        last_name:
+          type: string
+          description: 성
+          maxLength: 30
+          example: 길동
+        is_verified:
+          type: boolean
+          description: 이메일 인증 여부
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          description: 계정 생성일시
+          example: "2025-09-18T10:30:00Z"
+      required:
+        - id
+        - username
+        - email
+        - first_name
+        - last_name
+        - is_verified
+        - created_at
+
+    UserRegistration:
+      type: object
+      properties:
+        username:
+          type: string
+          description: 사용자명 (150자 이하, 문자, 숫자, @/./+/-/_ 만 허용)
+          maxLength: 150
+          example: user123
+        email:
+          type: string
+          format: email
+          description: 사용자 이메일 (고유값, 로그인에 사용)
+          example: user@example.com
+        first_name:
+          type: string
+          description: 이름
+          maxLength: 30
+          example: 홍
+        last_name:
+          type: string
+          description: 성
+          maxLength: 30
+          example: 길동
+        password:
+          type: string
+          writeOnly: true
+          description: 비밀번호 (최소 4자리)
+          minLength: 4
+          example: "1234"
+        password_confirm:
+          type: string
+          writeOnly: true
+          description: 비밀번호 확인
+          minLength: 4
+          example: "1234"
+      required:
+        - username
+        - email
+        - first_name
+        - last_name
+        - password
+        - password_confirm
+
+    TokenObtainPair:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: 로그인용 이메일
+          example: user@example.com
+        password:
+          type: string
+          writeOnly: true
+          description: 비밀번호
+          example: "1234"
+      required:
+        - email
+        - password
+
+    TokenResponse:
+      type: object
+      properties:
+        access:
+          type: string
+          description: JWT 액세스 토큰
+          example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+        refresh:
+          type: string
+          description: JWT 리프레시 토큰
+          example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+      required:
+        - access
+        - refresh
+
+    TokenRefresh:
+      type: object
+      properties:
+        refresh:
+          type: string
+          description: 리프레시 토큰
+          example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+      required:
+        - refresh
