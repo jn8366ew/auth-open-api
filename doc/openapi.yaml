@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Auth API
-  description: Authentication API with JWT
+  description: Authentication API with JWT and Kakao OAuth
   version: 1.0.0
 servers:
   - url: http://localhost:8000
@@ -156,6 +156,56 @@ paths:
               example:
                 detail: Authentication credentials were not provided.
 
+  /api/auth/logout/:
+    post:
+      operationId: logout_user
+      summary: 사용자 로그아웃
+      description: 리프레시 토큰을 블랙리스트에 추가하여 로그아웃합니다.
+      tags:
+        - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: 무효화할 리프레시 토큰
+                  example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+            examples:
+              로그아웃예시:
+                summary: 리프레시 토큰으로 로그아웃
+                value:
+                  refresh_token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+      responses:
+        '200':
+          description: 로그아웃 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: 성공적으로 로그아웃되었습니다.
+        '500':
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: 로그아웃 처리 중 오류가 발생했습니다.
+
   /api/auth/health/:
     get:
       operationId: health_check
@@ -179,6 +229,148 @@ paths:
                   summary: 서버 정상 응답
                   value:
                     status: healthy
+
+  /api/auth/kakao/login/:
+    get:
+      operationId: kakao_login_url
+      summary: 카카오 로그인 URL 조회
+      description: |
+        카카오 OAuth 인증을 위한 Authorization Code 요청 URL을 생성합니다.
+
+        생성되는 URL은 카카오 공식 문서를 따라 다음 형식입니다:
+        `https://kauth.kakao.com/oauth/authorize?client_id={REST_API_KEY}&redirect_uri={REDIRECT_URI}&response_type=code&scope=profile_nickname,account_email`
+      tags:
+        - Kakao OAuth
+      responses:
+        '200':
+          description: 카카오 로그인 URL 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KakaoLoginResponse'
+              examples:
+                카카오로그인URL:
+                  summary: 카카오 로그인 URL 응답
+                  value:
+                    status: success
+                    login_url: https://kauth.kakao.com/oauth/authorize?client_id=YOUR_REST_API_KEY&redirect_uri=http://localhost:8000/api/auth/kakao/callback/&response_type=code&scope=profile_nickname,account_email
+                    redirect_uri: http://localhost:8000/api/auth/kakao/callback/
+                    scope: profile_nickname,account_email
+        '500':
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/kakao/callback/:
+    get:
+      operationId: kakao_callback
+      summary: 카카오 OAuth 콜백
+      description: |
+        카카오 OAuth 인증 후 Authorization Code를 받는 콜백 엔드포인트입니다.
+
+        카카오는 사용자 인증 완료 후 이 URL로 authorization code 또는 error를 전달합니다.
+        성공 시: `?code={AUTHORIZATION_CODE}`
+        실패 시: `?error={ERROR_CODE}&error_description={ERROR_DESCRIPTION}`
+      tags:
+        - Kakao OAuth
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 카카오로부터 받은 인증 코드
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 인증 실패 시 에러 코드
+        - name: error_description
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 에러 상세 설명
+      responses:
+        '302':
+          description: 프론트엔드로 리다이렉트 (토큰 포함)
+          headers:
+            Location:
+              schema:
+                type: string
+                example: http://localhost:3000/auth/kakao/callback?access_token=...&refresh_token=...&user_id=1&email=user@example.com&first_name=홍&is_new_user=false
+        '400':
+          description: 잘못된 요청
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/kakao/token/:
+    post:
+      operationId: kakao_token_login
+      summary: 카카오 토큰으로 로그인
+      description: |
+        카카오에서 발급받은 Access Token을 사용하여 직접 로그인하는 엔드포인트입니다.
+
+        프론트엔드에서 카카오 JavaScript SDK 등을 통해 직접 토큰을 받은 경우 사용합니다.
+        이 토큰으로 카카오 사용자 정보를 조회하고 JWT 토큰을 발급합니다.
+      tags:
+        - Kakao OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KakaoTokenRequest'
+            examples:
+              카카오토큰로그인:
+                summary: 카카오 액세스 토큰으로 로그인
+                value:
+                  access_token: aaAAABbbCCCdddEEE...
+      responses:
+        '200':
+          description: 카카오 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KakaoTokenResponse'
+              examples:
+                카카오로그인성공:
+                  summary: 카카오 로그인 성공 응답
+                  value:
+                    status: success
+                    message: 카카오 로그인 성공
+                    tokens:
+                      access: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                      refresh: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+                    user:
+                      id: 1
+                      email: user@kakao.com
+                      first_name: 홍길동
+                      profile_image: http://k.kakaocdn.net/dn/abc123/profile.jpg
+                      is_new_user: false
+        '400':
+          description: 잘못된 요청
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 서버 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   securitySchemes:
@@ -318,3 +510,104 @@ components:
           example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
       required:
         - refresh
+
+    KakaoLoginResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 응답 상태
+          example: success
+        login_url:
+          type: string
+          format: uri
+          description: 카카오 OAuth 로그인 URL
+          example: https://kauth.kakao.com/oauth/authorize?client_id=...
+        redirect_uri:
+          type: string
+          format: uri
+          description: 콜백 URI
+          example: http://localhost:8000/api/auth/kakao/callback/
+        scope:
+          type: string
+          description: 요청 권한 범위 (카카오 공식 scope 명칭 사용)
+          example: profile_nickname,account_email
+      required:
+        - status
+        - login_url
+        - redirect_uri
+        - scope
+
+    KakaoTokenRequest:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: 카카오 액세스 토큰
+          example: aaAAABbbCCCdddEEE...
+      required:
+        - access_token
+
+    KakaoTokenResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 응답 상태
+          example: success
+        message:
+          type: string
+          description: 응답 메시지
+          example: 카카오 로그인 성공
+        tokens:
+          $ref: '#/components/schemas/TokenResponse'
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: 사용자 ID
+              example: 1
+            email:
+              type: string
+              format: email
+              description: 사용자 이메일
+              example: user@kakao.com
+            first_name:
+              type: string
+              description: 사용자 이름
+              example: 홍길동
+            profile_image:
+              type: string
+              format: uri
+              description: 프로필 이미지 URL
+              example: http://k.kakaocdn.net/dn/abc123/profile.jpg
+            is_new_user:
+              type: boolean
+              description: 신규 사용자 여부
+              example: false
+          required:
+            - id
+            - email
+            - first_name
+            - is_new_user
+      required:
+        - status
+        - message
+        - tokens
+        - user
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: 응답 상태
+          example: error
+        message:
+          type: string
+          description: 오류 메시지
+          example: 요청 처리 중 오류가 발생했습니다.
+      required:
+        - status
+        - message
