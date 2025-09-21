@@ -12,4 +12,5 @@ dependencies = [
     "drf-spectacular>=0.28.0",
     "mysqlclient>=2.2.7",
     "python-dotenv>=1.0.0",
+    "requests>=2.32.5",
 ]

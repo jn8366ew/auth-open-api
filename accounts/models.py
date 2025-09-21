@@ -9,5 +9,14 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    USERNAME_FIELD = 'email'  # 이메일로 로그인
-    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+        # 카카오 OAuth 관련 필드 추가
+    social_provider = models.CharField(max_length=20, null=True, blank=True)  # 'kakao', 'google' 등
+    social_id = models.CharField(max_length=100, null=True, blank=True)       # 카카오 고유 ID
+    profile_image = models.URLField(null=True, blank=True)  
+
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+    
+    class Meta:
+        unique_together = ('social_provider', 'social_id')

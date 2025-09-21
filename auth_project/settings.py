@@ -34,24 +34,20 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
+
     'accounts',
 ]
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    # 커스텀 YAML 파일을 사용하므로 기본 스키마 클래스는 사용하지 않음
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
 
-# SPECTACULAR_SETTINGS는 커스텀 스키마를 사용하므로 비활성화
-# SPECTACULAR_SETTINGS = {
-#     'TITLE': 'Auth API',
-#     'DESCRIPTION': 'Authentication API with JWT',
-#     'VERSION': '1.0.0',
-#     'SERVE_INCLUDE_SCHEMA': False,
-#     'COMPONENT_SPLIT_REQUEST': True,
-# }
 
 # JWT Settings
 from datetime import timedelta
@@ -142,3 +138,60 @@ USE_TZ = True
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'accounts': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+
+KAKAO_CLIENT_ID = os.getenv('KAKAO_CLIENT_ID')
+KAKAO_REDIRECT_URI = os.getenv('KAKAO_REDIRECT_URI')
+KAKAO_CLIENT_SECRET = os.getenv('KAKAO_CLIENT_SECRET')
+SITE_URL = os.getenv('SITE_URL')
+
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
